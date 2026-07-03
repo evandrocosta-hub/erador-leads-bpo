@@ -1,0 +1,8 @@
+# Dados baixados da RFB e artefatos locais
+dados/
+saida/
+*.db
+*.sqlite
+__pycache__/
+*.pyc
+.pytest_cache/

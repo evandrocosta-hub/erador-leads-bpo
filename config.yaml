@@ -1,0 +1,93 @@
+# =============================================================================
+# gerador-leads-bpo — configuração do ICP (Ideal Customer Profile) do parceiro
+# =============================================================================
+# Edite este arquivo para refletir o perfil de cliente ideal da empresa de
+# BPO financeiro. Todos os filtros abaixo são aplicados sobre os Dados
+# Abertos do CNPJ da Receita Federal.
+
+dados:
+  # Índice oficial dos Dados Abertos do CNPJ (RFB)
+  url_base: "https://arquivos.receitafederal.gov.br/dados/cnpj/dados_abertos_cnpj/"
+  # "mais_recente" descobre automaticamente a última pasta mensal (ex.: 2026-06),
+  # ou informe uma referência fixa, ex.: "2026-05"
+  referencia: "mais_recente"
+  diretorio_download: "dados/download"
+  banco_sqlite: "dados/leads.db"
+  # Baixa também o arquivo Simples.zip para confirmar opção pelo Simples
+  # Nacional (recomendado; ~200 MB adicionais)
+  usar_simples: true
+  # Opcional (testes/execução parcial): limita quantos arquivos de
+  # Empresas/Estabelecimentos baixar e processar (0 = todos).
+  # ATENÇÃO: com limite < total, a lista de leads fica incompleta.
+  limite_arquivos: 0
+
+icp:
+  # UF obrigatória (sigla)
+  uf: "SC"
+  # Lista de municípios (nomes; acentuação é normalizada automaticamente).
+  # Deixe vazia [] para considerar a UF inteira.
+  municipios:
+    - "Joinville"
+    - "Blumenau"
+    - "Florianópolis"
+
+  # CNAEs-alvo: prefixos do CNAE fiscal principal (sem pontuação).
+  # Default cobre serviços, saúde, tecnologia, agências, clínicas e e-commerce.
+  cnaes_alvo:
+    - "62"      # Tecnologia: desenvolvimento de software e consultoria em TI
+    - "63"      # Tecnologia: tratamento de dados, portais, serviços de informação
+    - "70"      # Serviços: consultoria em gestão empresarial
+    - "71"      # Serviços: arquitetura e engenharia
+    - "73"      # Agências: publicidade, marketing e pesquisa de mercado
+    - "74"      # Serviços: design, fotografia e outras atividades profissionais
+    - "82"      # Serviços administrativos e apoio a escritórios
+    - "85"      # Educação (escolas, cursos livres)
+    - "86"      # Saúde e clínicas (médicas, odontológicas, psicologia etc.)
+    - "4791"    # E-commerce: comércio varejista via internet
+
+  # Dentro dos CNAEs-alvo, prefixos que pesam mais no score (aderência máxima
+  # ao BPO financeiro: serviços recorrentes, agências, clínicas, e-commerce)
+  cnaes_prioritarios:
+    - "62"
+    - "70"
+    - "73"
+    - "86"
+    - "4791"
+
+  # Porte da empresa (RFB): ME = microempresa, EPP = empresa de pequeno porte
+  portes:
+    - "ME"
+    - "EPP"
+
+  # Se true, descarta empresas com registro explícito de NÃO opção pelo
+  # Simples Nacional (exige dados.usar_simples: true para ter efeito)
+  somente_simples_provavel: true
+
+  # Idade máxima da empresa em meses (ex.: abertas nos últimos 24 meses).
+  # Use 0 para não filtrar por idade.
+  idade_maxima_meses: 24
+
+  # Situação cadastral exigida ("ATIVA" é o único valor suportado/recomendado)
+  situacao_cadastral: "ATIVA"
+
+score:
+  # Pesos de cada componente (o máximo possível soma 100)
+  pesos:
+    idade: 30              # empresa recém-aberta pesa mais
+    cnae_prioritario: 25   # CNAE de serviços prioritário
+    cnae_alvo: 15          # CNAE-alvo não prioritário
+    capital_faixa: 15      # capital social dentro da faixa PME
+    email: 15              # e-mail presente no cadastro
+    telefone: 10           # telefone presente no cadastro
+    simples: 5             # opção pelo Simples confirmada
+  # Faixa de capital social considerada "PME saudável" (R$)
+  capital_pme:
+    minimo: 5000
+    maximo: 1000000
+  # Cortes de classificação: A >= 70, B >= 45, C abaixo disso
+  classes:
+    A: 70
+    B: 45
+
+saida:
+  arquivo_excel: "saida/leads_bpo.xlsx"
