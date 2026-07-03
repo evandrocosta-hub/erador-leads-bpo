@@ -1,0 +1,71 @@
+# Gera a lista de leads inteiramente no GitHub Actions — sem precisar de
+# máquina própria nem de acesso à rede: o runner do GitHub baixa os dados
+# da RFB, roda o pipeline e publica o Excel como artifact e como release.
+name: Gerar lista de leads
+
+on:
+  # Execução manual: aba Actions -> "Gerar lista de leads" -> Run workflow
+  workflow_dispatch:
+    inputs:
+      limite_arquivos:
+        description: "Shards por tipo (0 = todos; 1 = teste rápido, lista incompleta)"
+        default: "0"
+        required: false
+  # A RFB publica dados novos no início de cada mês; roda todo dia 15
+  schedule:
+    - cron: "0 6 15 * *"
+  # Roda automaticamente quando este workflow é criado/alterado
+  push:
+    branches: [main]
+    paths: [".github/workflows/gerar-leads.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Aplicar limite de arquivos (modo teste)
+        if: ${{ inputs.limite_arquivos != '' && inputs.limite_arquivos != '0' && inputs.limite_arquivos != null }}
+        env:
+          LIMITE: ${{ inputs.limite_arquivos }}
+        run: |
+          python - <<'PY'
+          import os, re, pathlib
+          caminho = pathlib.Path("config.yaml")
+          texto = caminho.read_text(encoding="utf-8")
+          texto = re.sub(r"limite_arquivos:\s*\d+", f"limite_arquivos: {int(os.environ['LIMITE'])}", texto)
+          caminho.write_text(texto, encoding="utf-8")
+          print(f"limite_arquivos ajustado para {os.environ['LIMITE']} (lista sairá INCOMPLETA)")
+          PY
+
+      - name: Rodar pipeline (download RFB + carga + score + Excel)
+        run: python -m gerador_leads_bpo --config config.yaml
+
+      - name: Publicar planilha como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: leads-bpo
+          path: saida/leads_bpo.xlsx
+          retention-days: 90
+
+      - name: Publicar release com a planilha
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="leads-$(date -u +%Y%m%d-%H%M%S)"
+          gh release create "$TAG" saida/leads_bpo.xlsx \
+            --title "Lista de leads — $(date -u +%d/%m/%Y)" \
+            --notes "Gerada automaticamente a partir dos Dados Abertos do CNPJ (Receita Federal), com o ICP definido em config.yaml. Dados públicos, uso B2B — ver aviso de LGPD no README."

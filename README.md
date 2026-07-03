@@ -52,6 +52,24 @@ Para um teste rápido antes da rodada completa, use `dados.limite_arquivos: 1`
 no `config.yaml` — o pipeline processa só o primeiro shard de cada tipo
 (a lista sai **incompleta**, serve apenas para validar filtros).
 
+## Rodando sem máquina própria (GitHub Actions)
+
+Não precisa de computador nem de infraestrutura: o workflow
+[`gerar-leads.yml`](.github/workflows/gerar-leads.yml) roda o pipeline
+inteiro nos servidores do GitHub.
+
+1. Acesse a aba **Actions** do repositório → workflow **"Gerar lista de leads"**
+   → **Run workflow** (para um teste rápido, informe `1` em *limite_arquivos*);
+2. Aguarde a execução terminar (a rodada completa baixa ~6 GB da RFB e pode
+   levar de 1 a 3 horas; o teste com 1 shard leva ~10-20 minutos);
+3. Baixe a planilha em **dois lugares**: na página da execução (artifact
+   `leads-bpo`) ou na aba **Releases** do repositório (um release novo é
+   criado a cada rodada, com a data no nome).
+
+O workflow também roda sozinho **todo dia 15** (a RFB publica dados novos no
+início de cada mês). Para mudar o ICP, edite o `config.yaml` direto na
+interface do GitHub (ícone de lápis) e dispare o workflow de novo.
+
 ## Configuração do ICP (`config.yaml`)
 
 | Chave | Descrição |
