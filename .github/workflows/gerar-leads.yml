@@ -1,30 +1,41 @@
-# Gera a lista de leads inteiramente no GitHub Actions — sem precisar de
-# máquina própria nem de acesso à rede: o runner do GitHub baixa os dados
-# da RFB, roda o pipeline e publica o Excel como artifact e como release.
+# Gera a lista de leads no GitHub Actions, baixando os dados da RFB, rodando
+# o pipeline e publicando o Excel como artifact e como release.
+#
+# IMPORTANTE: o servidor da RFB (arquivos.receitafederal.gov.br) recusa
+# conexões de IPs fora do Brasil, então os runners hospedados do GitHub
+# (ubuntu-latest) NÃO conseguem baixar os dados. Para gerar a lista de
+# verdade, registre um runner self-hosted numa máquina/VPS com IP brasileiro
+# (Settings -> Actions -> Runners -> New self-hosted runner) e deixe o input
+# "runner" como "self-hosted" (padrão). Veja o README, seção
+# "Rodar a partir de um IP brasileiro".
 name: Gerar lista de leads
 
 on:
   # Execução manual: aba Actions -> "Gerar lista de leads" -> Run workflow
   workflow_dispatch:
     inputs:
+      runner:
+        description: "Runner: self-hosted (IP BR, gera a lista) ou ubuntu-latest (só teste do código; falha no download)"
+        default: "self-hosted"
+        required: false
+        type: choice
+        options: ["self-hosted", "ubuntu-latest"]
       limite_arquivos:
         description: "Shards por tipo (0 = todos; 1 = teste rápido, lista incompleta)"
         default: "0"
         required: false
   # A RFB publica dados novos no início de cada mês; roda todo dia 15
+  # (usa o runner self-hosted brasileiro).
   schedule:
     - cron: "0 6 15 * *"
-  # Roda automaticamente quando este workflow é criado/alterado
-  push:
-    branches: [main]
-    paths: [".github/workflows/gerar-leads.yml"]
 
 permissions:
   contents: write
 
 jobs:
   gerar:
-    runs-on: ubuntu-latest
+    # Runner escolhido no dispatch; nos demais gatilhos usa o self-hosted BR
+    runs-on: ${{ inputs.runner || 'self-hosted' }}
     timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4

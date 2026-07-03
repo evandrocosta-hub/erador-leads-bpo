@@ -52,23 +52,61 @@ Para um teste rápido antes da rodada completa, use `dados.limite_arquivos: 1`
 no `config.yaml` — o pipeline processa só o primeiro shard de cada tipo
 (a lista sai **incompleta**, serve apenas para validar filtros).
 
-## Rodando sem máquina própria (GitHub Actions)
+## ⚠️ É preciso um IP brasileiro para baixar os dados
 
-Não precisa de computador nem de infraestrutura: o workflow
-[`gerar-leads.yml`](.github/workflows/gerar-leads.yml) roda o pipeline
-inteiro nos servidores do GitHub.
+O servidor de Dados Abertos da RFB (`arquivos.receitafederal.gov.br`)
+**recusa conexões de IPs fora do Brasil**. Na prática:
 
-1. Acesse a aba **Actions** do repositório → workflow **"Gerar lista de leads"**
-   → **Run workflow** (para um teste rápido, informe `1` em *limite_arquivos*);
-2. Aguarde a execução terminar (a rodada completa baixa ~6 GB da RFB e pode
-   levar de 1 a 3 horas; o teste com 1 shard leva ~10-20 minutos);
-3. Baixe a planilha em **dois lugares**: na página da execução (artifact
-   `leads-bpo`) ou na aba **Releases** do repositório (um release novo é
-   criado a cada rodada, com a data no nome).
+- **Funciona**: sua máquina no Brasil, uma VPS/servidor em região brasileira,
+  ou um runner self-hosted em rede brasileira.
+- **Não funciona**: runners hospedados do GitHub (`ubuntu-latest`), a maioria
+  das nuvens em regiões dos EUA/Europa — a conexão dá *timeout* e o download
+  falha (o código está correto; é bloqueio de rede na origem).
 
-O workflow também roda sozinho **todo dia 15** (a RFB publica dados novos no
-início de cada mês). Para mudar o ICP, edite o `config.yaml` direto na
-interface do GitHub (ícone de lápis) e dispare o workflow de novo.
+O download já tem *retry* com backoff para tolerar a instabilidade do servidor
+da RFB, mas isso não contorna o bloqueio geográfico — daí a necessidade de um
+IP brasileiro.
+
+### Opção A — Rodar com Docker (qualquer máquina/VPS BR)
+
+Sem instalar Python; só Docker. Numa máquina com IP brasileiro:
+
+```bash
+git clone https://github.com/evandrocosta-hub/erador-leads-bpo.git
+cd erador-leads-bpo
+# edite o config.yaml com o ICP do parceiro
+docker build -t gerador-leads-bpo .
+docker run --rm \
+  -v "$PWD/saida:/app/saida" \
+  -v "$PWD/dados:/app/dados" \
+  -v "$PWD/config.yaml:/app/config.yaml" \
+  gerador-leads-bpo
+```
+
+A planilha aparece em `./saida/leads_bpo.xlsx`. O volume `dados/` guarda os
+ZIPs baixados e o SQLite entre execuções (evita rebaixar tudo).
+
+### Opção B — GitHub Actions com runner self-hosted BR
+
+Mantém tudo automatizado (releases a cada rodada, execução mensal), mas
+usando uma máquina brasileira sua como runner:
+
+1. No repositório: **Settings → Actions → Runners → New self-hosted runner**
+   e siga as instruções numa máquina/VPS com IP brasileiro (deixe-a ligada);
+2. Aba **Actions → "Gerar lista de leads" → Run workflow**, mantendo o
+   input **runner** como `self-hosted` (para um teste, informe `1` em
+   *limite_arquivos*);
+3. Baixe a planilha na aba **Releases** (release novo a cada rodada) ou como
+   artifact `leads-bpo` na página da execução.
+
+O workflow também roda **todo dia 15** no runner self-hosted (a RFB publica
+dados novos no início de cada mês). A opção `ubuntu-latest` no input existe
+apenas para testar o código — ela falha no download por causa do bloqueio.
+
+### Opção C — Direto na sua máquina
+
+Veja a seção [Passo a passo de execução](#passo-a-passo-de-execução) acima
+(Python + `pip install` + `python -m gerador_leads_bpo`).
 
 ## Configuração do ICP (`config.yaml`)
 

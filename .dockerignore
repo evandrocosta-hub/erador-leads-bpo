@@ -1,0 +1,9 @@
+.git
+dados/
+saida/
+*.db
+*.sqlite
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
